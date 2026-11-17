@@ -43,9 +43,20 @@ jobs:
         with:
           gradle-version: 4.10.3
 
+      - name: Check Forge maven
+        run: |
+          echo "== userdev jar =="
+          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-userdev.jar | head -n 15
+          echo "== mdk zip =="
+          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-mdk.zip | head -n 5
+          echo "== maven root =="
+          curl -sI https://maven.minecraftforge.net/ | head -n 5
+
       - name: Build jar
         working-directory: ${{ steps.proj.outputs.dir }}
-        run: gradle setupCIWorkspace build --no-daemon
+        env:
+          GRADLE_OPTS: -Dhttps.protocols=TLSv1.2,TLSv1.3
+        run: gradle setupCIWorkspace build --no-daemon --stacktrace
 
       - name: Upload jar
         uses: actions/upload-artifact@v4
