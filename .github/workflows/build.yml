@@ -29,8 +29,13 @@ jobs:
           fi
           DIR=$(dirname "$FILE")
           echo "Project dir: $DIR"
-          ls -la "$DIR"
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Switch to maintained ForgeGradle 2.3 fork
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: |
+          sed -i "s#net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT#com.anatawa12.forge:ForgeGradle:2.3-1.0.+#" build.gradle
+          grep -n "ForgeGradle" build.gradle
 
       - name: Set up JDK 8
         uses: actions/setup-java@v4
@@ -46,17 +51,15 @@ jobs:
       - name: Check Forge maven
         run: |
           echo "== userdev jar =="
-          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-userdev.jar | head -n 15
-          echo "== mdk zip =="
-          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-mdk.zip | head -n 5
-          echo "== maven root =="
-          curl -sI https://maven.minecraftforge.net/ | head -n 5
+          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-userdev.jar | head -n 12
+          echo "== maven metadata =="
+          curl -s https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml | grep -o "<version>1.12.2-[^<]*" | tail -n 8
 
       - name: Build jar
         working-directory: ${{ steps.proj.outputs.dir }}
         env:
           GRADLE_OPTS: -Dhttps.protocols=TLSv1.2,TLSv1.3
-        run: gradle setupCIWorkspace build --no-daemon --stacktrace
+        run: gradle setupCIWorkspace build --no-daemon --refresh-dependencies
 
       - name: Upload jar
         uses: actions/upload-artifact@v4
