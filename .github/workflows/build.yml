@@ -31,11 +31,30 @@ jobs:
           echo "Project dir: $DIR"
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Switch to maintained ForgeGradle 2.3 fork
+      - name: Use ForgeGradle 2.3 fork + pick a Forge version that has userdev
         working-directory: ${{ steps.proj.outputs.dir }}
         run: |
           sed -i "s#net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT#com.anatawa12.forge:ForgeGradle:2.3-1.0.+#" build.gradle
-          grep -n "ForgeGradle" build.gradle
+          FOUND=""
+          for V in 2862 2861 2860 2859 2854 2851 2847 2846 2845 2844 2843 2842 2841; do
+            FV="1.12.2-14.23.5.$V"
+            for BASE in https://maven.minecraftforge.net https://maven.daporkchop.net; do
+              URL="$BASE/net/minecraftforge/forge/$FV/forge-$FV-userdev.jar"
+              CODE=$(curl -s -L -o /dev/null -w "%{http_code}" "$URL")
+              echo "$CODE  $URL"
+              if [ "$CODE" = "200" ] && [ -z "$FOUND" ]; then FOUND="$FV"; FBASE="$BASE"; fi
+            done
+          done
+          if [ -z "$FOUND" ]; then
+            echo "No userdev jar found on any server."
+            exit 1
+          fi
+          echo "Using Forge $FOUND from $FBASE"
+          sed -i "s#1.12.2-14.23.5.2860#$FOUND#" build.gradle
+          if [ "$FBASE" = "https://maven.daporkchop.net" ]; then
+            printf '\nrepositories {\n    maven { url = "https://maven.daporkchop.net" }\n}\n' >> build.gradle
+          fi
+          grep -n -E "ForgeGradle|version =|daporkchop" build.gradle
 
       - name: Set up JDK 8
         uses: actions/setup-java@v4
@@ -47,13 +66,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 4.10.3
-
-      - name: Check Forge maven
-        run: |
-          echo "== userdev jar =="
-          curl -sI https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-userdev.jar | head -n 12
-          echo "== maven metadata =="
-          curl -s https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml | grep -o "<version>1.12.2-[^<]*" | tail -n 8
 
       - name: Build jar
         working-directory: ${{ steps.proj.outputs.dir }}
